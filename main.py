@@ -74,8 +74,9 @@ def send_request(language: str, words: str) -> None:
 
     # gpt_stream = get_gpt_stream()
     # print("gpt_stream: ", gpt_stream)
-    gen_audio()
+    gen_response()
 
+    # TODO APPEND STREAMED RESPONSE TO THE CONVERSATION (how??)
     # conversation.append({"role": "assistant", "content": answer})
     print(f"conversation so far: {conversation}")
 
@@ -96,9 +97,9 @@ def get_gpt_stream():
         yield response.choices[0].delta.content
 
 
-def gen_audio() -> None:
+def gen_response() -> None:
     """
-    Generates audio from a string of text.
+    Generates response and audio from a string of text.
 
     Args:
         words: A string containing the text to be converted to audio.
@@ -109,12 +110,15 @@ def gen_audio() -> None:
     Raises:
         openai.error.OpenAIError: If there is an error with the OpenAI API request.
     """
-    print("Generating audio...")
-    audio = elevenlabs.generate(
+    print("Streaming audio...")
+    audio_stream = elevenlabs.generate(
         text=get_gpt_stream(), voice="Nicole", stream=True  # for now
     )
-    print("audio generated")
-    elevenlabs.stream(audio)
+    def generate_audio():
+        for chunk in audio_stream:
+            yield chunk
+    
+    # elevenlabs.stream(audio)
     # elevenlabs.play(audio)
 
 
