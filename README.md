@@ -2,25 +2,20 @@
 
 ## Installation
 
-```bash
-chmod +x ./install.sh
-./install.sh
-```
-
-## Dependentcies
-
-* [OpenAI API wrapper](https://beta.openai.com/docs/api-reference/introduction)
-* [PyAudio](https://people.csail.mit.edu/hubert/pyaudio/)
-* [SpeechRecognition](https://github.com/Uberi/speech_recognition)
-* [openai-whisper](https://github.com/openai/whisper)
-
-## How to use
+1. Install system dependencies
 
 ```sh
-export OPENAI_API_KEY=xxxxxxxxx
-python main.py
+brew install portaudio
+brew install flac
+brew install ffmpeg
 ```
 
-## License
+2. Make python virtual environment and install python dependencies
 
-* MIT License
+```sh
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+3. Ensure your OpenAI key is properly configured as an env variable

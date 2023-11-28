@@ -1,17 +1,16 @@
-import argparse
 import os
-import openai
-import subprocess
+from openai import OpenAI
 import speech_recognition as sr
+import elevenlabs
 
-
-LANGUAGES = {
-  "en": "english",
-  "zh-hans": "chinese"
-}
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+conversation=[{'role': 'system', 'content': """You are Jason Lin, a college student answering his door. Respond to folks knocking on your door. Be concise, witty, and natural. Here is some info about you:
+               
+               You live in the dorm Toyon. You study computer science at Stanford. You love to tinker. You made a motorized driving couch, and there is a robot arm in your room. You love to take photos.
+               For most people coming to the room, just mention that you're currently busy but would love to chat later.
+               """}]
 
 def transcribe_speech(language: str) -> str:
-    
     """
         Records audio from the microphone and transcribes it into text.
 
@@ -35,16 +34,16 @@ def transcribe_speech(language: str) -> str:
         
         recognizer.adjust_for_ambient_noise(source)
         audio = recognizer.listen(source)
-        print(audio)
         
-        transcript = recognizer.recognize_whisper(audio, language=language)
+        print("Recognizing...")
+        transcript = recognizer.recognize_whisper(audio, language=language, model="base.en") # local whisper
+        # transcript = client.audio.transcriptions.create(file=audio.get_wav_data(), model="whisper-1") # OAI whisper
+        
         print(transcript)
-        
         return transcript
 
 
 def send_request(language: str, words: str) -> None:
-    
     """
         Sends a request to the OpenAI API and speaks out the response.
 
@@ -58,44 +57,51 @@ def send_request(language: str, words: str) -> None:
         Raises:
             openai.error.OpenAIError: If there is an error with the OpenAI API request.
     """
-    
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    
-    completion = openai.ChatCompletion.create(
-      model="gpt-3.5-turbo-0301",
-      messages=[
-        {
-            "role": "user", 
-            "content": words
-        }
-      ]
+    if words == "" or words == None or not any(c.isalpha() for c in words): # if no words were said
+        print("No words were said.")
+        return
+    completion = client.chat.completions.create(model="gpt-4-1106-preview",
+    messages = conversation + [
+      {
+          
+          "role": "user", 
+          "content": words
+      }
+    ], # stream=True at some point
     )
+    conversation.append({"role": "user", "content": words})
+    answer = completion.choices[0].message.content
+    conversation.append({"role": "assistant", "content": answer})
+    gen_audio(answer)
+    print(f'conversation so far: {conversation}')
     
-    answer = completion.choices[0].message["content"]
-    print(answer)
-    
-    out = answer.replace('\n', " ")
-    cmd_str = f"say {'--voice Tingting' if language == 'chinese' else ''} \"{out}\""
-    
-    subprocess.call(cmd_str, shell=True)
+def gen_audio(words: str) -> None:
+    """
+        Generates audio from a string of text.
 
+        Args:
+            words: A string containing the text to be converted to audio.
+
+        Returns:
+            None.
+
+        Raises:
+            openai.error.OpenAIError: If there is an error with the OpenAI API request.
+    """
+    print("Generating audio...")
+    audio = elevenlabs.generate(
+        text=words,
+        voice="Nicole", # for now
+        # model="eleven_monolingual_v1",
+        # stream=True,
+    )
+    # stream(audio)
+    print("audio generated")
+    elevenlabs.play(audio)
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--language",
-        type=str,
-        choices=sorted(LANGUAGES.keys()),
-        default="en",
-        metavar="LANGUAGE",
-        help="language to talk, available: {%(choices)s}",
-    )
-
-    options = parser.parse_args()
-    language = LANGUAGES[options.language]
-
-    print(language)
+    language = 'english'
 
     while True:
         input_words = transcribe_speech(language)
