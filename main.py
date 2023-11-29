@@ -2,19 +2,20 @@ import os
 from openai import OpenAI
 import speech_recognition as sr
 import elevenlabs
+from dotenv import load_dotenv
+
+load_dotenv()
+elevenlabs.set_api_key(os.environ.get("ELEVENLABS_API_KEY"))
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 conversation = [
     {
         "role": "system",
-        "content": """You are Jason Lin, a college student answering his door. Respond to folks knocking on your door. Be concise, witty, and natural. Here is some info about you:
-               
-               You live in the dorm Toyon. You study computer science at Stanford. You love to build things. You made a motorized driving couch, and there is a robot arm in your room. You love to take photos. You like to drink tea.
-               For most people coming to the room, just mention that you're currently busy but would love to chat later.
-               """,
+        "content": open("prompt.txt", "r").read(),
     }
 ]
-
+recognizer = sr.Recognizer()
+mic = sr.Microphone()
 
 def transcribe_speech(language: str) -> str:
     """
@@ -30,14 +31,10 @@ def transcribe_speech(language: str) -> str:
         sr.RequestError: If there is an error with the API request.
         sr.UnknownValueError: If the speech could not be transcribed.
     """
-
     print("\n\nListening...")
 
-    recognizer = sr.Recognizer()
-    mic = sr.Microphone()
-
     with mic as source:
-        recognizer.adjust_for_ambient_noise(source)
+        # recognizer.adjust_for_ambient_noise(source) # causes a delay to sample for ambient noise
         audio = recognizer.listen(source)
 
         print("Recognizing...")
@@ -71,30 +68,40 @@ def send_request(language: str, words: str) -> None:
         return
 
     conversation.append({"role": "user", "content": words})
-
-    # gpt_stream = get_gpt_stream()
-    # print("gpt_stream: ", gpt_stream)
     gen_response()
-
-    # TODO APPEND STREAMED RESPONSE TO THE CONVERSATION (how??)
-    # conversation.append({"role": "assistant", "content": answer})
-    print(f"conversation so far: {conversation}")
 
 
 def get_gpt_stream():
     """
-    Returns a stream of GPT-3 responses. Is a generator.
+    Returns a stream of GPT-3 responses. Is a generator function.
     """
+    global conversation # for vibes
+
     completion = client.chat.completions.create(
         model="gpt-4-1106-preview",
         messages=conversation,
         stream=True,
     )
+    responseSoFar = ""
 
+    streamChunk = ""
+    punctuation = ".?!,"
     for response in completion:
         # Process each chunk of response
-        print("resp:", response.choices[0].delta.content)
-        yield response.choices[0].delta.content
+        newChunk = response.choices[0].delta.content
+        if newChunk:
+            print(f"newChunk: {newChunk}")
+
+            responseSoFar += newChunk
+            streamChunk += newChunk
+
+            if any(c in punctuation for c in newChunk):
+                print("yielding streamChunk: ", streamChunk)
+                yield streamChunk
+                streamChunk = ""
+
+    conversation.append({"role": "assistant", "content": responseSoFar})
+    print(conversation)
 
 
 def gen_response() -> None:
@@ -112,14 +119,21 @@ def gen_response() -> None:
     """
     print("Streaming audio...")
     audio_stream = elevenlabs.generate(
-        text=get_gpt_stream(), voice="Nicole", stream=True  # for now
+        text=get_gpt_stream(), 
+        voice="Daniel", 
+        stream=True 
     )
-    def generate_audio():
-        for chunk in audio_stream:
-            yield chunk
     
-    # elevenlabs.stream(audio)
-    # elevenlabs.play(audio)
+    elevenlabs.stream(audio_stream)
+
+    # for response in get_gpt_stream():
+    #     print("response: ", response)
+    #     audio_stream = elevenlabs.generate(
+    #         text=response, 
+    #         voice="Nicole", 
+    #         stream=True 
+    #     )
+    #     elevenlabs.stream(audio_stream)
 
 
 if __name__ == "__main__":
