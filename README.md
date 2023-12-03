@@ -19,6 +19,8 @@ pip install -r requirements.txt
 
 ## TODO
 
+- create stop condition (when conversation is over. otherwise bot will keep listening)
+
 - clean dependencies
 
 - optimize whisper streaming thru non-local model (api?)
