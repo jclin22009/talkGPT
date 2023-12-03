@@ -34,7 +34,8 @@ def transcribe_speech(language: str) -> str:
     print("\n\nListening...")
 
     with mic as source:
-        # recognizer.adjust_for_ambient_noise(source) # causes a delay to sample for ambient noise
+        recognizer.adjust_for_ambient_noise(source) # causes a delay to sample for ambient noise
+
         audio = recognizer.listen(source)
 
         print("Recognizing...")
@@ -120,7 +121,7 @@ def gen_response() -> None:
     print("Streaming audio...")
     audio_stream = elevenlabs.generate(
         text=get_gpt_stream(), 
-        voice="Daniel", 
+        voice="Nicole", 
         stream=True 
     )
     
